@@ -1,0 +1,188 @@
+import pygame
+import random
+class Bird(pygame.sprite.Sprite):
+
+    def __init__(self,imgs,x,y):
+        super().__init__()
+        self.origin_x=x
+        self.origin_y=y
+        self.imgs=imgs
+        self.img_index=0
+        self.image = self.imgs[self.img_index]
+        self.rect = self.image.get_rect()
+        self.rect.center = (x,y)
+        self.last_pic_time=pygame.time.get_ticks()#=0
+        self.img_frequency=200
+        self.speedy=0
+        self.fly_anime=True
+
+    def update(self,ground_top):
+        #飛翔動畫
+        if self.fly_anime:#鳥變圖片
+            now=pygame.time.get_ticks()
+            if now-self.last_pic_time>=self.img_frequency:
+                self.img_index+=1
+                if self.img_index>=len(self.imgs):
+                    self.img_index=0
+                self.image = pygame.transform.rotate(self.imgs[self.img_index],-self.speedy*2)
+                self.last_pic_time=now
+        #引力
+        self.speedy+=0.5
+        if self.speedy>9:
+            self.speedy=9
+        self.rect.y += self.speedy#鳥位子
+        #鳥位子不超過地板
+        if self.rect.bottom > ground_top:
+            self.rect.bottom = ground_top
+
+    def jump(self):
+        self.speedy=-8.5#鳥位子變化
+
+    def game_over(self):
+        self.fly_anime = False
+        self.image=pygame.transform.rotate(self.imgs[self.img_index],-90)
+
+    def reset(self):
+        self.img_index = 0
+        self.image = self.imgs[self.img_index]
+        self.rect.center = (self.origin_x, self.origin_y)
+        self.last_pic_time = pygame.time.get_ticks()  # =0
+        self.speedy = 0
+        self.fly_anime = True
+
+class Pipe(pygame.sprite.Sprite):
+    def __init__(self,img,x,y,top):
+        super().__init__()
+        self.image=img
+        self.rect = self.image.get_rect()
+        self.speedx=4
+        self.bird_pass=False
+        if top:
+            self.rect.bottomleft = (x, y)
+        else:
+            self.rect.topleft = (x, y)
+
+    def update(self):
+        self.rect.x -= self.speedx
+        if self.rect.right < 0:
+            self.kill()
+
+def generate_pipes(last_pipe_time, pipe_frequency, pipe_group):
+    now=pygame.time.get_ticks()
+    if now - last_pipe_time >= pipe_frequency:
+        random_height=random.randint(-100,100)
+        pipe_bottom = Pipe(pipe1_img, SCREEN_WIDTH, SCREEN_HEIGHT / 2 + pipe_gap + random_height, False)#傳入pipe套件
+        pipe_top = Pipe(filp_pipe_img, SCREEN_WIDTH, SCREEN_HEIGHT / 2 - pipe_gap + random_height, True)#傳入pipe套件
+        pipe_group.add(pipe_top, pipe_bottom)#傳入管子的群組
+        return now
+    else:
+        return last_pipe_time#=last_pipe_time
+
+def draw_score():
+    score_text=score_font.render(str(score), True,WHITE)
+    window.blit(score_text,(SCREEN_WIDTH/2-score_text.get_width()/2,20))
+
+#---設定常數---
+SCREEN_WIDTH = 780
+SCREEN_HEIGHT = 600
+WHITE = (255, 255, 255)
+FPS = 60
+
+pygame.init()
+
+#---遊戲視窗---
+window=pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
+pygame.display.set_caption("flappy bird")
+clock=pygame.time.Clock()
+
+#---導入圖片---
+bg_img=pygame.image.load(r"C:\Users\User\AppData\Roaming\JetBrains\PyCharm2024.1\scratches\day16\picture\img\bg.png")
+bg_img=pygame.transform.scale(bg_img,(SCREEN_WIDTH,SCREEN_HEIGHT))
+
+bird1_img=pygame.image.load(r"C:\Users\User\AppData\Roaming\JetBrains\PyCharm2024.1\scratches\day16\picture\img\bird1.png")
+bird2_img=pygame.image.load(r"C:\Users\User\AppData\Roaming\JetBrains\PyCharm2024.1\scratches\day16\picture\img\bird2.png")
+bird3_img=pygame.image.load(r"C:\Users\User\AppData\Roaming\JetBrains\PyCharm2024.1\scratches\day16\picture\img\bird3.png")
+bird_imgs=[bird1_img,bird2_img,bird3_img]
+
+ground_img=pygame.image.load(r"C:\Users\User\AppData\Roaming\JetBrains\PyCharm2024.1\scratches\day16\picture\img\ground.png")
+
+pipe1_img=pygame.image.load(r"C:\Users\User\AppData\Roaming\JetBrains\PyCharm2024.1\scratches\day16\picture\img\pipe.png")
+filp_pipe_img=pygame.transform.rotate(pipe1_img,180)
+
+restart_img=pygame.image.load(r"C:\Users\User\AppData\Roaming\JetBrains\PyCharm2024.1\scratches\day16\picture\img\restart.png")
+
+pygame.display.set_icon(bird1_img)
+
+#---載入文字---
+score_font=pygame.font.Font(r"C:\Users\User\OneDrive\桌面\微軟正黑體 (1).ttf",60)
+
+#---遊戲變數---
+ground_speed=4
+groundx=0
+pipe_gap=75
+pipe_frequency=1500
+last_pipe_time=pygame.time.get_ticks()-pipe_frequency#-1500
+ground_top=SCREEN_HEIGHT- 100
+game_over=False
+score=0
+
+#---套件傳入變數和創建群組---
+bird=Bird(bird_imgs,100,200)#傳入bird套件
+bird_group=pygame.sprite.Group()#創建鳥群組
+bird_group.add(bird)#傳入鳥的群組
+
+pipe_group=pygame.sprite.Group()#創建管子群組
+
+run=True
+while run:
+    clock.tick(FPS)
+    #---取得輸入---
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            run=False
+
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button==1 and not game_over:
+                bird.jump()
+
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE and game_over:
+                game_over=False
+                score=0
+                last_pipe_time=pygame.time.get_ticks()-pipe_frequency
+                bird.reset()
+                for pipe in pipe_group.sprites():
+                    pipe.kill()
+
+    #---更新遊戲---
+    bird_group.update(ground_top)
+    if not game_over:
+        pipe_group.update()#管子移動
+        last_pipe_time=generate_pipes(last_pipe_time,pipe_frequency,pipe_group)#產生管子#回傳now變0
+        #判斷通過管子
+        first_pipe=pipe_group.sprites()[0]
+        if not first_pipe.bird_pass:#Flase
+            if first_pipe.rect.right<bird.rect.right:
+                score+=1
+                first_pipe.bird_pass=True
+            #移動地板
+            groundx -= ground_speed
+            if groundx < -100:
+                groundx = 0
+    #鳥碰撞判斷                                                  False為碰到不要消除 True為碰到要消除
+    if pygame.sprite.groupcollide(bird_group,pipe_group,False,False)!={} or bird.rect.top<=0 or bird.rect.bottom>=ground_top:
+        game_over=True
+        bird.game_over()
+
+    #---畫面顯示---
+    window.blit(bg_img,(0,0))
+    bird_group.draw(window)
+    pipe_group.draw(window)
+    window.blit(ground_img, (groundx, ground_top))
+    draw_score()
+    if game_over==True:
+        window.blit(restart_img, (SCREEN_WIDTH/2-restart_img.get_width()/2,SCREEN_HEIGHT/2-restart_img.get_height()/2))
+
+    pygame.display.update()
+
+pygame.quit()
